@@ -2,34 +2,39 @@ name: IndexNow Submit
 
 on:
   schedule:
-    - cron: "0 */6 * * *"   # jalan otomatis tiap 6 jam
-  workflow_dispatch:        # bisa dijalankan manual dari tab Actions
+    - cron: "0 */6 * * *"  # Jalan otomatis tiap 6 jam
+  workflow_dispatch:        # Bisa dijalankan manual dari tab Actions
 
 jobs:
   submit:
     runs-on: ubuntu-latest
     steps:
+      - name: Install jq
+        run: sudo apt-get install -y jq
+
       - name: Submit URLs to IndexNow
+        env:
+          SITEMAP_URL: "https://www.suzukimedan.my.id/sitemap.xml"
+          HOST: "www.suzukimedan.my.id"
+          API_KEY: ${{ secrets.INDEXNOW_API_KEY }}  # Gunakan secret untuk keamanan
+
         run: |
-          # Sitemap Blogger kamu
-          SITEMAP_URL="https://www.suzukimedan.my.id/sitemap.xml"
-          # API key sesuai file .txt di GitHub Pages
-          API_KEY="77617b72b1ac49ecbc6d3cd72fa617e3"
-          # Domain blog kamu
-          HOST="www.suzukimedan.my.id"
+          # Ambil 20 URL terbaru dari sitemap
+          URL_LIST=$(curl -s $SITEMAP_URL | grep -oP '(?<=<loc>).*?(?=</loc>)' | head -n 20)
 
-          # Ambil URL dari sitemap (maksimal 20 terbaru biar cepat)
-          URLS=$(curl -s $SITEMAP_URL | grep -oP '(?<=<loc>).*?(?=</loc>)' | head -n 20)
+          # Buat array JSON dari URL_LIST
+          JSON_URLS=$(echo "$URL_LIST" | jq -R . | jq -s .)
 
-          # Buat JSON payload
-          JSON="{\"host\":\"$HOST\",\"key\":\"$API_KEY\",\"keyLocation\":\"https://suzukimedanid.github.io/indexnow-key/$API_KEY.txt\",\"urlList\":["
-          for u in $URLS; do
-            JSON="$JSON\"$u\","
-          done
-          JSON="${JSON%,}]}"   # hapus koma terakhir
+          # Buat payload lengkap
+          PAYLOAD=$(jq -n \
+            --arg host "$HOST" \
+            --arg key "$API_KEY" \
+            --arg keyloc "https://suzukimedanid.github.io/indexnow-key/$API_KEY.txt" \
+            --argjson url_list "$JSON_URLS" \
+            '{host: $host, key: $key, keyLocation: $keyloc, urlList: $url_list}')
 
-          echo "Payload yang dikirim:"
-          echo $JSON
+          echo "Payload yang akan dikirim:"
+          echo "$PAYLOAD"
 
-          # Submit ke IndexNow
-          curl -H "Content-Type: application/json" -d "$JSON" "https://api.indexnow.org/IndexNow"
+          # Kirim payload ke API IndexNow
+          curl -s -H "Content-Type: application/json" -d "$PAYLOAD" "https://api.indexnow.org/IndexNow"
