@@ -1,0 +1,35 @@
+name: IndexNow Submit
+
+on:
+  schedule:
+    - cron: "0 */6 * * *"   # jalan otomatis tiap 6 jam
+  workflow_dispatch:        # bisa dijalankan manual dari tab Actions
+
+jobs:
+  submit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Submit URLs to IndexNow
+        run: |
+          # Sitemap Blogger kamu
+          SITEMAP_URL="https://www.suzukimedan.my.id/sitemap.xml"
+          # API key sesuai file .txt di GitHub Pages
+          API_KEY="77617b72b1ac49ecbc6d3cd72fa617e3"
+          # Domain blog kamu
+          HOST="www.suzukimedan.my.id"
+
+          # Ambil URL dari sitemap (maksimal 20 terbaru biar cepat)
+          URLS=$(curl -s $SITEMAP_URL | grep -oP '(?<=<loc>).*?(?=</loc>)' | head -n 20)
+
+          # Buat JSON payload
+          JSON="{\"host\":\"$HOST\",\"key\":\"$API_KEY\",\"keyLocation\":\"https://suzukimedanid.github.io/indexnow-key/$API_KEY.txt\",\"urlList\":["
+          for u in $URLS; do
+            JSON="$JSON\"$u\","
+          done
+          JSON="${JSON%,}]}"   # hapus koma terakhir
+
+          echo "Payload yang dikirim:"
+          echo $JSON
+
+          # Submit ke IndexNow
+          curl -H "Content-Type: application/json" -d "$JSON" "https://api.indexnow.org/IndexNow"
