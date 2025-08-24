@@ -19,7 +19,6 @@ jobs:
           API_KEY: ${{ secrets.INDEXNOW_API_KEY }}
 
         run: |
-          # Ambil 20 URL terbaru dari sitemap
           URL_LIST=$(curl -s "$SITEMAP_URL" | grep -oP '(?<=<loc>).*?(?=</loc>)' | head -n 20)
           
           if [ -z "$URL_LIST" ]; then
@@ -27,10 +26,8 @@ jobs:
             exit 0
           fi
           
-          # Buat array JSON dari URL_LIST menggunakan jq
           JSON_URLS=$(echo "$URL_LIST" | jq -R . | jq -s .)
           
-          # Buat payload lengkap dengan jq, tanpa 'keyLocation'
           PAYLOAD=$(jq -n \
             --arg host "$HOST" \
             --arg key "$API_KEY" \
@@ -40,14 +37,15 @@ jobs:
           echo "Payload yang akan dikirim:"
           echo "$PAYLOAD"
           
-          # Kirim payload dan tangkap kode status
           STATUS_CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "Content-Type: application/json" -d "$PAYLOAD" "https://api.indexnow.org/IndexNow")
           
           echo "Status kode respons dari IndexNow: $STATUS_CODE"
           
-          if [ "$STATUS_CODE" -ne 200 ]; then
+          # Perbaikan di sini: Cek apakah kode status 200 ATAU 202
+          if [ "$STATUS_CODE" -eq 200 ] || [ "$STATUS_CODE" -eq 202 ]; then
+            echo "Pengiriman ke IndexNow berhasil."
+            exit 0
+          else
             echo "Pengiriman ke IndexNow gagal. Status kode: $STATUS_CODE"
             exit 1
-          else
-            echo "Pengiriman ke IndexNow berhasil dengan status kode: $STATUS_CODE"
           fi
