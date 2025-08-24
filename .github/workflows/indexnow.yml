@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Install jq
-        run: sudo apt-get install -y jq
+        run: sudo apt-get update && sudo apt-get install -y jq
 
       - name: Submit URLs to IndexNow
         env:
@@ -20,18 +20,17 @@ jobs:
 
         run: |
           # Ambil 20 URL terbaru dari sitemap
-          URL_LIST=$(curl -s $SITEMAP_URL | grep -oP '(?<=<loc>).*?(?=</loc>)' | head -n 20)
+          URL_LIST=$(curl -s "$SITEMAP_URL" | grep -oP '(?<=<loc>).*?(?=</loc>)' | head -n 20)
           
-          # Cek apakah ada URL yang ditemukan
           if [ -z "$URL_LIST" ]; then
-            echo "Tidak ada URL yang ditemukan di sitemap. Proses dihentikan."
+            echo "Tidak ada URL yang ditemukan. Proses dihentikan."
             exit 0
           fi
           
-          # Buat array JSON dari URL_LIST
+          # Buat array JSON dari URL_LIST menggunakan jq
           JSON_URLS=$(echo "$URL_LIST" | jq -R . | jq -s .)
           
-          # Buat payload lengkap tanpa 'keyLocation' karena Anda tidak bisa mengupload file di Blogger
+          # Buat payload lengkap dengan jq, tanpa 'keyLocation'
           PAYLOAD=$(jq -n \
             --arg host "$HOST" \
             --arg key "$API_KEY" \
@@ -46,7 +45,6 @@ jobs:
           
           echo "Status kode respons dari IndexNow: $STATUS_CODE"
           
-          # Cek status dan berikan pesan error jika gagal
           if [ "$STATUS_CODE" -ne 200 ]; then
             echo "Pengiriman ke IndexNow gagal. Status kode: $STATUS_CODE"
             exit 1
