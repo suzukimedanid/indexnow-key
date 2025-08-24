@@ -36,5 +36,7 @@ jobs:
           echo "Payload yang akan dikirim:"
           echo "$PAYLOAD"
 
-          # Kirim payload ke API IndexNow
-          curl -s -H "Content-Type: application/json" -d "$PAYLOAD" "https://api.indexnow.org/IndexNow"
+          # Kirim payload ke API IndexNow dan cetak kode status HTTP
+          STATUS_CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "Content-Type: application/json" -d "$PAYLOAD" "https://api.indexnow.org/IndexNow")
+          
+          echo "Status kode respons dari IndexNow: $STATUS_CODE"
